@@ -41,7 +41,7 @@ exports.login = async (req, res, next) => {
 
     try {
         // check for user 
-        const user = await User.findOne({ email }).select('+password');
+        const user = await User.findOne({ email }).select('+password role name email');
 
         if(!user) {
             return res.status(400).json({
@@ -49,6 +49,16 @@ exports.login = async (req, res, next) => {
                 message: 'Invalid credentials',
             });
         }
+
+        // debug logs
+
+        console.log('=== BACKEND DEBUG ===');
+        console.log('User found:', user);
+        console.log('User role:', user.role);
+        console.log('User name:', user.name);
+        console.log('User email:', user.email);
+        console.log('Raw user object:', user.toObject());
+        console.log('====================');
 
         // check if password matches
         const isMatch = await user.matchPassword(password);
