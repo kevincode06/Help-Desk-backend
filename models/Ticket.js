@@ -5,7 +5,7 @@ const TicketSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Please add a title'],
         trim: true,
-        maxxlength: [100, 'Title cannot be more than 100 characters'],
+        maxlength: [100, 'Title cannot be more than 100 characters'],
     },
     description: {
         type: String,
@@ -18,8 +18,8 @@ const TicketSchema = new mongoose.Schema({
     },
     priority: {
         type: String,
-        enum: ['minor', 'normal', 'critical'],
-        default: 'normal',
+        enum: ['low', 'medium', 'high'],
+        default: 'medium',
     }, 
     user: {
        type: mongoose.Schema.ObjectId,
@@ -43,9 +43,9 @@ const TicketSchema = new mongoose.Schema({
         },
         message: {
             type: String,
-            require: true,
+            required: true,
         },
-        sendAt: {
+        sentAt: {
             type: Date,
             default: Date.now,
         },
@@ -54,8 +54,8 @@ const TicketSchema = new mongoose.Schema({
 });
 
 // update the updatedAt field before saving
-TicketSchema.pre('save,', function (next) {
-    this.updatedAt = Data.now();
+TicketSchema.pre('save', function (next) {
+    this.updatedAt = Date.now();
     next();
 });
 

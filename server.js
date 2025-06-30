@@ -20,6 +20,7 @@ connectDB();
 
 const auth = require('./routes/auth');
 const tickets = require('./routes/tickets');
+const adminRoutes = require('./routes/admin');
 
 const app = express(); 
 
@@ -29,6 +30,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/api/v1/auth', auth);
 app.use('/api/v1/tickets', tickets);
+app.use('/api/v1/admin', adminRoutes);
 
 
 app.use(errorHandler);
