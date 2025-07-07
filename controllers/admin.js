@@ -1,9 +1,7 @@
 const Ticket = require('../models/Ticket');
 const User = require('../models/User');
 
-// @desc    Get all tickets for admin
-// @route   GET /api/v1/admin/tickets
-// @access  Private/Admin
+
 const getAllTickets = async (req, res) => {
     try {
         const tickets = await Ticket.find()
@@ -30,9 +28,7 @@ const getAllTickets = async (req, res) => {
     }
 };
 
-// @desc    Get all users for admin
-// @route   GET /api/v1/admin/users
-// @access  Private/Admin
+
 const getAllUsers = async (req, res) => {
     try {
         const users = await User.find().select('-password').sort({ createdAt: -1 });
@@ -51,9 +47,7 @@ const getAllUsers = async (req, res) => {
     }
 };
 
-// @desc    Get admin dashboard stats
-// @route   GET /api/v1/admin/stats
-// @access  Private/Admin
+
 const getAdminStats = async (req, res) => {
     try {
         // Get ticket counts by status
@@ -112,9 +106,6 @@ const getAdminStats = async (req, res) => {
     }
 };
 
-// @desc    Update ticket status
-// @route   PATCH /api/v1/admin/tickets/:id/status
-// @access  Private/Admin
 const updateTicketStatus = async (req, res) => {
     try {
         const { status } = req.body;
@@ -161,9 +152,7 @@ const updateTicketStatus = async (req, res) => {
     }
 };
 
-// @desc    Delete ticket
-// @route   DELETE /api/v1/admin/tickets/:id
-// @access  Private/Admin
+
 const deleteTicket = async (req, res) => {
     try {
         const ticketId = req.params.id;
@@ -191,9 +180,7 @@ const deleteTicket = async (req, res) => {
     }
 };
 
-// @desc    Update user role
-// @route   PATCH /api/v1/admin/users/:id/role
-// @access  Private/Admin
+
 const updateUserRole = async (req, res) => {
     try {
         const { role } = req.body;
