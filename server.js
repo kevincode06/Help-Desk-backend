@@ -24,14 +24,6 @@ const adminRoutes = require('./routes/admin');
 
 const app = express(); 
 
-app.use(cors({
-    origin: [
-        'http://localhost:3000',
-        'https://help-desk-frontend-rust.vercel.app/'
-    ],
-    credentials: true
-}));
-
 app.use(express.json());
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
