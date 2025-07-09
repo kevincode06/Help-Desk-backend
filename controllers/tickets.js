@@ -1,14 +1,12 @@
 const Ticket = require('../models/Ticket');
 const ErrorResponse = require('../utils/ErrorResponse');
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
-const { OpenAI } = require('openai');
 
-// Initialize OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Gemini AI 
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-//     Get all tickets
+// ======= Get All Tickets =======
 exports.getTickets = async (req, res, next) => {
   try {
     const tickets = await Ticket.find().populate({
@@ -18,7 +16,7 @@ exports.getTickets = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      count: tickets.length, 
+      count: tickets.length,
       data: tickets,
     });
   } catch (err) {
@@ -29,9 +27,7 @@ exports.getTickets = async (req, res, next) => {
   }
 };
 
-//  Get single ticket
-
-
+// ======= Get Single Ticket =======
 exports.getTicket = async (req, res, next) => {
   try {
     const ticket = await Ticket.findById(req.params.id).populate({
@@ -46,7 +42,6 @@ exports.getTicket = async (req, res, next) => {
       });
     }
 
-    // Make sure user is ticket owner or admin
     if (ticket.user._id.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(401).json({
         success: false,
@@ -66,20 +61,19 @@ exports.getTicket = async (req, res, next) => {
   }
 };
 
-//     Create ticket
-
+// ======= Create Ticket =======
 exports.createTicket = async (req, res, next) => {
   try {
     req.body.user = req.user.id;
     const ticket = await Ticket.create(req.body);
 
-    // Add initial message to conversation
+    // Add initial message
     ticket.conversation.push({
       sender: 'user',
       message: req.body.description,
     });
 
-    // Check if user requested support
+    // If request includes "support", assign to human
     if (req.body.description.toLowerCase().includes('support')) {
       ticket.status = 'awaiting_response';
       ticket.conversation.push({
@@ -87,29 +81,18 @@ exports.createTicket = async (req, res, next) => {
         message: 'Your ticket has been escalated to a human support agent. Please wait for a response.',
       });
     } else {
-      // Generate AI response
+      //  Gemini AI response
       try {
-        const completion = await openai.chat.completions.create({
-          model: "gpt-3.5-turbo",
-          messages: [
-            {
-              role: "system",
-              content: "You are a helpful support assistant. Provide a concise and helpful response to the user's support ticket."
-            },
-            {
-              role: "user",
-              content: req.body.description
-            }
-          ],
-          max_tokens: 150,
-        });
+        const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
-        const aiResponse = completion.choices[0].message.content;
-        
+        const result = await model.generateContent(req.body.description);
+        const aiResponse = result.response.text();
+
         ticket.conversation.push({
           sender: 'ai',
           message: aiResponse,
         });
+
       } catch (aiError) {
         console.error('AI Error:', aiError);
         ticket.conversation.push({
@@ -133,7 +116,7 @@ exports.createTicket = async (req, res, next) => {
   }
 };
 
-// Update ticket
+// ======= Update Ticket =======
 exports.updateTicket = async (req, res, next) => {
   try {
     let ticket = await Ticket.findById(req.params.id);
@@ -145,7 +128,6 @@ exports.updateTicket = async (req, res, next) => {
       });
     }
 
-    // Make sure user is ticket owner or admin
     if (ticket.user.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(401).json({
         success: false,
@@ -153,14 +135,10 @@ exports.updateTicket = async (req, res, next) => {
       });
     }
 
-    // If user is admin, they can update status
-    if (req.user.role === 'admin') {
-      if (req.body.status) {
-        ticket.status = req.body.status;
-      }
+    if (req.user.role === 'admin' && req.body.status) {
+      ticket.status = req.body.status;
     }
 
-    // Add message to conversation if provided
     if (req.body.message) {
       ticket.conversation.push({
         sender: req.user.role === 'admin' ? 'admin' : 'user',
@@ -182,8 +160,7 @@ exports.updateTicket = async (req, res, next) => {
   }
 };
 
-// Get tickets for current user
-
+// ======= Get Tickets for Logged-in User =======
 exports.getMyTickets = async (req, res, next) => {
   try {
     const tickets = await Ticket.find({ user: req.user.id });
@@ -201,8 +178,7 @@ exports.getMyTickets = async (req, res, next) => {
   }
 };
 
-//    Get ticket stats
-
+// ======= Get Ticket Stats =======
 exports.getTicketStats = async (req, res, next) => {
   try {
     const stats = await Ticket.aggregate([
