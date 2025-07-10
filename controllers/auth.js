@@ -1,14 +1,13 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-const ErrorResponse = require('../utils/ErrorResponse'); 
+const ErrorResponse = require('../utils/ErrorResponse');
 
-
-// Register user 
+// Register user
 exports.register = async (req, res, next) => {
-    const { name, email, password, role} = req.body;
+    const { name, email, password, role } = req.body;
 
     try {
-        // create user 
+        // create user
         const user = await User.create({
             name,
             email,
@@ -26,32 +25,29 @@ exports.register = async (req, res, next) => {
 };
 
 // login user
-
 exports.login = async (req, res, next) => {
     const { email, password } = req.body;
 
-
-    // Validate email & password 
+    // Validate email & password
     if (!email || !password) {
         return res.status(400).json({
-            success: false, 
+            success: false,
             message: 'Please enter an email and password',
         });
     }
 
     try {
-        // check for user 
+        // check for user
         const user = await User.findOne({ email }).select('+password role name email');
 
-        if(!user) {
+        if (!user) {
             return res.status(400).json({
-                success: false, 
+                success: false,
                 message: 'Invalid credentials',
             });
         }
 
         // debug logs
-
         console.log('=== BACKEND DEBUG ===');
         console.log('User found:', user);
         console.log('User role:', user.role);
@@ -65,7 +61,7 @@ exports.login = async (req, res, next) => {
 
         if (!isMatch) {
             return res.status(400).json({
-                success: false, 
+                success: false,
                 message: 'Invalid credentials',
             });
         }
@@ -80,7 +76,6 @@ exports.login = async (req, res, next) => {
 };
 
 // get logged in user
-
 exports.getMe = async (req, res, next) => {
     const user = await User.findById(req.user.id);
 
@@ -90,21 +85,21 @@ exports.getMe = async (req, res, next) => {
     });
 };
 
-
 // get token from model, create cookie and send response
-const sendTokenResponse = (user, statusCode, res)  => {
-    // Create token 
+const sendTokenResponse = (user, statusCode, res) => {
+    // Create token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
         expiresIn: process.env.JWT_EXPIRE,
     });
+    
     const options = {
         expires: new Date(
-            Date.now() + process.env.JWT_COOKIE_EXPIRE * 24 * 60 * 60 * 1000,  //Calculate cookie expiration time in milliseconds by adding JWT_COOKIE_EXPIRE days to the current time
+            Date.now() + process.env.JWT_COOKIE_EXPIRE * 24 * 60 * 60 * 1000,
         ),
         httpOnly: true,
     };
 
-    if ( process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === 'production') {
         options.secure = true;
     }
 
