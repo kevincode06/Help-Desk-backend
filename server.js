@@ -12,30 +12,32 @@ process.on('uncaughtException', (err) => {
   process.exit(1);
 });
 
-// Load env vars
+// Load environment variables from .env file
 dotenv.config();
 
-// Connect to database
+// Connect to MongoDB
 connectDB();
 
 // Import routes
-const auth = require('./routes/auth');
-const tickets = require('./routes/tickets');
+const authRoutes = require('./routes/auth');
+const ticketRoutes = require('./routes/tickets');
 const adminRoutes = require('./routes/admin');
+const messageRoutes = require('./routes/messages'); 
 
 const app = express();
 
-// Body parser middleware
+// Middleware
 app.use(express.json());
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Route handlers
-app.use('/api/v1/auth', auth);
-app.use('/api/v1/tickets', tickets);
+// API Routes
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/tickets', ticketRoutes);
 app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/messages', messageRoutes); 
 
-// Fallback route for undefined paths
+// Catch-all for undefined routes
 app.use((req, res, next) => {
   res.status(404).json({
     success: false,
@@ -47,6 +49,7 @@ app.use((req, res, next) => {
 // Error handler
 app.use(errorHandler);
 
+// Server start
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);

@@ -1,40 +1,46 @@
 const Message = require('../models/Message');
 
-// send a message
+// Send a message
 exports.sendMessage = async (req, res) => {
-    try {
-        const {
-            ticketId, message } = req.body;
+  try {
+    const { ticketId, text } = req.body;
 
-            if (!ticketId || !message) {
-                return res.status(400).json({ error: 'ticketId and message are required' });
-            }
-
-            const newMsg = await Message.create({
-                ticketId,
-                sender: req.user._id,
-                message
-            });
-
-            res.status(201).json(newMsg);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error'});
+    // Validate input
+    if (!ticketId || !text) {
+      return res.status(400).json({ error: 'ticketId and message are required' });
     }
+
+    const newMessage = await Message.create({
+      ticketId,
+      sender: req.user._id,
+      message: text
+    });
+
+    res.status(201).json({
+      success: true,
+      data: newMessage
+    });
+  } catch (err) {
+    console.error('Send Message Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
 };
 
-// get all message for ticket
+// Get all messages for a ticket
 exports.getMessages = async (req, res) => {
-    try {
-        const ticketId = req.params.ticketId;
+  try {
+    const ticketId = req.params.ticketId;
 
-        const messages = await Message.find({ ticketId })
-        .sort({ sentAt: 1 })
-        .populate('sender', 'name email role');
+    const messages = await Message.find({ ticketId })
+      .sort({ createdAt: 1 })
+      .populate('sender', 'name email role');
 
-        res.json(messages);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
-    }
+    res.status(200).json({
+      success: true,
+      data: messages
+    });
+  } catch (err) {
+    console.error('Get Messages Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
 };
