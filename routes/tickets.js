@@ -4,9 +4,11 @@ const {
     getTicket,
     createTicket,
     updateTicket,
-    getMyTickets,
-    getTicketStats,
-    generateAIResponse, 
+    deleteTicket,
+    getUserTickets,     
+    generateResponse,    
+    addMessage,
+    closeTicket
 } = require('../controllers/tickets');
 
 const router = express.Router();
@@ -18,14 +20,14 @@ router.route('/')
     .get(authorize('admin'), getTickets)
     .post(createTicket);
 
-router.route('/my-tickets').get(getMyTickets);
-router.route('/stats').get(authorize('admin'), getTicketStats);
-
-
-router.route('/:id/ai-response').post(generateAIResponse);
+router.route('/my-tickets').get(getUserTickets); 
+router.route('/:id/generate-response').post(generateResponse); 
+router.route('/:id/message').post(addMessage);
+router.route('/:id/close').patch(closeTicket);
 
 router.route('/:id')
     .get(getTicket)
-    .put(updateTicket);
+    .put(updateTicket)
+    .delete(deleteTicket);
 
 module.exports = router;

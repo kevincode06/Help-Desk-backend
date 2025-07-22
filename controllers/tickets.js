@@ -1,53 +1,7 @@
 const Ticket = require('../models/Ticket');
 const ErrorResponse = require('../utils/ErrorResponse');
-require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 
-// Gemini AI 
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-// Enhanced AI response generation function
-const generateAIResponseText = async (prompt, conversationHistory = []) => {
-    try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-        
-        // Build context from conversation history
-        let contextPrompt = `You are a helpful customer support AI assistant. Based on the following conversation history and the latest message, provide a professional, helpful response.
-
-Conversation History:
-${conversationHistory.map(msg => `${msg.sender}: ${msg.message}`).join('\n')}
-
-Latest Message: ${prompt}
-
-Please provide a helpful response that:
-1. Acknowledges the user's issue
-2. Provides relevant troubleshooting steps or information
-3. Is concise but thorough
-4. Maintains a friendly, professional tone
-5. If the issue seems complex or requires human intervention, suggest escalating to a support agent
-
-Response:`;
-
-        const result = await model.generateContent(contextPrompt);
-        return result.response.text();
-    } catch (error) {
-        console.error('AI Error:', error);
-        throw new Error('AI service temporarily unavailable');
-    }
-};
-
-// Check if message contains support escalation keywords
-const checkForSupportEscalation = (message) => {
-    const supportKeywords = [
-        'support', 'urgent', 'critical', 'emergency', 'escalate', 
-        'supervisor', 'manager', 'human', 'agent', 'help me',
-        'not working', 'broken', 'frustrated', 'angry'
-    ];
-    const lowerMessage = message.toLowerCase();
-    return supportKeywords.some(keyword => lowerMessage.includes(keyword));
-};
-
-// ======= Get All Tickets =======
+// Get All Tickets 
 exports.getTickets = async (req, res, next) => {
     try {
         const tickets = await Ticket.find().populate({
@@ -68,7 +22,7 @@ exports.getTickets = async (req, res, next) => {
     }
 };
 
-// ======= Get Single Ticket =======
+// Get Single Ticket 
 exports.getTicket = async (req, res, next) => {
     try {
         const ticket = await Ticket.findById(req.params.id).populate({
@@ -102,57 +56,32 @@ exports.getTicket = async (req, res, next) => {
     }
 };
 
-// ======= Create Ticket =======
+// Create Ticket 
 exports.createTicket = async (req, res, next) => {
     try {
         req.body.user = req.user.id;
+        
+        // Set default category and priority if not provided
+        if (!req.body.category) {
+            req.body.category = 'general';
+        }
+        if (!req.body.priority) {
+            req.body.priority = 'medium';
+        }
+
         const ticket = await Ticket.create(req.body);
 
-        // Add initial message
+        // Add initial user message to conversation
         ticket.conversation.push({
             sender: 'user',
             message: req.body.description,
         });
 
-        // Check if ticket needs support escalation
-        const needsSupport = checkForSupportEscalation(req.body.description);
-
-        if (needsSupport) {
-            // Escalate to human support
-            ticket.status = 'awaiting_response';
-            ticket.conversation.push({
-                sender: 'admin',
-                message: 'Your ticket has been escalated to a human support agent due to the nature of your request. Please wait for a response from our support team.',
-            });
-        } else {
-            // Generate AI response
-            try {
-                const aiResponse = await generateAIResponseText(
-                    req.body.description,
-                    []
-                );
-
-                ticket.conversation.push({
-                    sender: 'ai',
-                    message: aiResponse,
-                });
-
-                // Set status to awaiting response if AI suggests human intervention
-                if (aiResponse.toLowerCase().includes('escalate') || 
-                    aiResponse.toLowerCase().includes('support agent') ||
-                    aiResponse.toLowerCase().includes('human assistance')) {
-                    ticket.status = 'awaiting_response';
-                }
-
-            } catch (aiError) {
-                console.error('AI Error:', aiError);
-                ticket.conversation.push({
-                    sender: 'ai',
-                    message: 'Thank you for your ticket. Our automated system is currently unavailable. Your ticket has been logged and will be reviewed by our support team shortly.',
-                });
-                ticket.status = 'awaiting_response';
-            }
-        }
+        // Add initial response
+        ticket.conversation.push({
+            sender: 'system',
+            message: `Thank you for contacting our support team. We have received your ${req.body.category} ticket and will respond as soon as possible. Our typical response time is within 24 hours.`,
+        });
 
         await ticket.save();
 
@@ -174,8 +103,8 @@ exports.createTicket = async (req, res, next) => {
     }
 };
 
-// ======= Generate AI Response (New Function) =======
-exports.generateAIResponse = async (req, res, next) => {
+// Generate Response 
+exports.generateResponse = async (req, res, next) => {
     try {
         const ticket = await Ticket.findById(req.params.id);
 
@@ -194,44 +123,39 @@ exports.generateAIResponse = async (req, res, next) => {
             });
         }
 
-        // Get the latest user message or use the description
-        const latestMessage = ticket.conversation.length > 0 
-            ? ticket.conversation[ticket.conversation.length - 1].message 
-            : ticket.description;
+        // Generate basic response
+        const response = `Thank you for your message. Our support team has been notified and will respond to your ${ticket.category} ticket as soon as possible.`;
 
-        // Generate AI response
-        const aiResponse = await generateAIResponseText(
-            latestMessage,
-            ticket.conversation
-        );
-
-        // Add AI response to conversation
+        // Add response to conversation
         ticket.conversation.push({
-            sender: 'ai',
-            message: aiResponse,
+            sender: 'system',
+            message: response,
         });
 
         await ticket.save();
 
-        res.status(200).json({
-            success: true,
-            aiReply: aiResponse,
-            data: ticket,
+        // Return populated ticket
+        const populatedTicket = await Ticket.findById(ticket._id).populate({
+            path: 'user',
+            select: 'name email',
         });
 
+        res.status(200).json({
+            success: true,
+            data: populatedTicket,
+        });
     } catch (err) {
-        console.error('AI Response Error:', err);
         res.status(500).json({
             success: false,
-            message: 'Failed to generate AI response: ' + err.message,
+            message: 'Unable to generate response',
         });
     }
 };
 
-// ======= Update Ticket =======
-exports.updateTicket = async (req, res, next) => {
+// Add Message to Ticket 
+exports.addMessage = async (req, res, next) => {
     try {
-        let ticket = await Ticket.findById(req.params.id);
+        const ticket = await Ticket.findById(req.params.id);
 
         if (!ticket) {
             return res.status(404).json({
@@ -240,42 +164,32 @@ exports.updateTicket = async (req, res, next) => {
             });
         }
 
+        // Check authorization
         if (ticket.user.toString() !== req.user.id && req.user.role !== 'admin') {
             return res.status(401).json({
                 success: false,
-                message: 'Not authorized to update this ticket',
+                message: 'Not authorized to access this ticket',
             });
         }
 
-        // Update status if provided (admin only)
-        if (req.user.role === 'admin' && req.body.status) {
-            ticket.status = req.body.status;
+        const { message } = req.body;
+        
+        if (!message) {
+            return res.status(400).json({
+                success: false,
+                message: 'Message is required',
+            });
         }
 
-        // Add new message if provided
-        if (req.body.message) {
-            ticket.conversation.push({
-                sender: req.user.role === 'admin' ? 'admin' : 'user',
-                message: req.body.message,
-            });
+        // Add user message to conversation
+        ticket.conversation.push({
+            sender: req.user.role === 'admin' ? 'admin' : 'user',
+            message: message,
+        });
 
-            // Auto-generate AI response for user messages (if not admin)
-            if (req.user.role !== 'admin' && ticket.status !== 'closed') {
-                try {
-                    const aiResponse = await generateAIResponseText(
-                        req.body.message,
-                        ticket.conversation
-                    );
-
-                    ticket.conversation.push({
-                        sender: 'ai',
-                        message: aiResponse,
-                    });
-                } catch (aiError) {
-                    console.error('AI Error in update:', aiError);
-                    // Continue without AI response if it fails
-                }
-            }
+        // Update ticket status if it was closed
+        if (ticket.status === 'closed') {
+            ticket.status = 'open';
         }
 
         await ticket.save();
@@ -298,8 +212,96 @@ exports.updateTicket = async (req, res, next) => {
     }
 };
 
-// ======= Get Tickets for Logged-in User =======
-exports.getMyTickets = async (req, res, next) => {
+// Update Ticket 
+exports.updateTicket = async (req, res, next) => {
+    try {
+        let ticket = await Ticket.findById(req.params.id);
+
+        if (!ticket) {
+            return res.status(404).json({
+                success: false,
+                message: 'Ticket not found',
+            });
+        }
+
+        // Check authorization
+        if (ticket.user.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(401).json({
+                success: false,
+                message: 'Not authorized to access this ticket',
+            });
+        }
+
+        // Only allow certain fields to be updated
+        const allowedFields = ['title', 'description', 'category', 'priority', 'status'];
+        const filteredBody = {};
+        
+        Object.keys(req.body).forEach(key => {
+            if (allowedFields.includes(key)) {
+                filteredBody[key] = req.body[key];
+            }
+        });
+
+        ticket = await Ticket.findByIdAndUpdate(
+            req.params.id,
+            filteredBody,
+            {
+                new: true,
+                runValidators: true,
+            }
+        ).populate({
+            path: 'user',
+            select: 'name email',
+        });
+
+        res.status(200).json({
+            success: true,
+            data: ticket,
+        });
+    } catch (err) {
+        res.status(400).json({
+            success: false,
+            message: err.message,
+        });
+    }
+};
+
+// Delete Ticket 
+exports.deleteTicket = async (req, res, next) => {
+    try {
+        const ticket = await Ticket.findById(req.params.id);
+
+        if (!ticket) {
+            return res.status(404).json({
+                success: false,
+                message: 'Ticket not found',
+            });
+        }
+
+        // Check authorization (only admin or ticket owner can delete)
+        if (ticket.user.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(401).json({
+                success: false,
+                message: 'Not authorized to delete this ticket',
+            });
+        }
+
+        await ticket.deleteOne();
+
+        res.status(200).json({
+            success: true,
+            message: 'Ticket deleted successfully',
+        });
+    } catch (err) {
+        res.status(400).json({
+            success: false,
+            message: err.message,
+        });
+    }
+};
+
+// Get Tickets by User 
+exports.getUserTickets = async (req, res, next) => {
     try {
         const tickets = await Ticket.find({ user: req.user.id }).populate({
             path: 'user',
@@ -319,35 +321,37 @@ exports.getMyTickets = async (req, res, next) => {
     }
 };
 
-// ======= Get Ticket Stats =======
-exports.getTicketStats = async (req, res, next) => {
+// Close Ticket 
+exports.closeTicket = async (req, res, next) => {
     try {
-        const stats = await Ticket.aggregate([
-            {
-                $group: {
-                    _id: '$status',
-                    count: { $sum: 1 },
-                },
-            },
-        ]);
+        const ticket = await Ticket.findById(req.params.id);
 
-        // Get additional stats
-        const totalTickets = await Ticket.countDocuments();
-        const aiResponseCount = await Ticket.countDocuments({
-            'conversation.sender': 'ai'
-        });
-        const supportEscalations = await Ticket.countDocuments({
-            status: 'awaiting_response'
+        if (!ticket) {
+            return res.status(404).json({
+                success: false,
+                message: 'Ticket not found',
+            });
+        }
+
+        // Check authorization
+        if (ticket.user.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(401).json({
+                success: false,
+                message: 'Not authorized to access this ticket',
+            });
+        }
+
+        ticket.status = 'closed';
+        await ticket.save();
+
+        const populatedTicket = await Ticket.findById(ticket._id).populate({
+            path: 'user',
+            select: 'name email',
         });
 
         res.status(200).json({
             success: true,
-            data: {
-                statusBreakdown: stats,
-                totalTickets,
-                aiResponseCount,
-                supportEscalations,
-            },
+            data: populatedTicket,
         });
     } catch (err) {
         res.status(400).json({
