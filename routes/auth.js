@@ -4,11 +4,11 @@ const {
     login,
     getMe,
 } = require('../controllers/auth');
-
-const router = express.Router();
 const { protect } = require('../middlewares/auth');
 
-// Routes
+const router = express.Router();
+
+// Auth routes
 router.post('/register', register);
 router.post('/login', login);
 router.get('/me', protect, getMe);

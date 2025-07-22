@@ -5,13 +5,13 @@ const {
     getAdminStats,
     updateTicketStatus,
     deleteTicket,
-    updateUserRole
-} = require('../controllers/admin');
-
-const router = express.Router();
+    updateUserRole,
+} = require('../controllers/admin'); 
 const { protect, authorize } = require('../middlewares/auth');
 
-// All admin routes require authentication and admin role
+const router = express.Router();
+
+// Protect all admin routes
 router.use(protect);
 router.use(authorize('admin'));
 
