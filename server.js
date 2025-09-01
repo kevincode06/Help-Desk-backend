@@ -52,6 +52,14 @@ app.use((req, res, next) => {
   });
 });
 
+app.get('/', (req, res) => {
+  res.json({ message: 'Help Desk API is running!' });
+});
+
+app.get('/api/v1', (req, res) => {
+  res.json({ message: 'API v1 is working!' });
+});
+
 // Error handler
 app.use(errorHandler);
 
